@@ -87,6 +87,8 @@
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
   .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600}
   .chip b{color:var(--down);cursor:pointer;margin-left:5px;font-size:15px}
+  .stance{background:rgba(91,141,239,.12);border:1px solid var(--accent);border-radius:12px;
+    padding:12px 14px;font-size:14px;margin-bottom:12px;line-height:1.6}
   .wgrid{grid-template-columns:1fr}
   @media(min-width:560px){.wgrid{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:900px){.wgrid{grid-template-columns:repeat(3,1fr)}}
@@ -225,6 +227,7 @@ function renderTW(d){
      <div class="grid cards">${card('外資',m.foreign,st(fs))}${card('投信',m.trust,st(ts))}
        ${card('自營商',m.dealer,'含自行＋避險')}${card('三大法人合計',m.total,'')}</div></section>
    <section><div class="sec-title">大盤資金流向訊號 <small>依籌碼規則自動研判</small></div>${lampHTML(d.market_signal)}</section>
+   <section><div class="sec-title">今日推薦關注 <small>依籌碼篩選的偏多觀察名單</small></div>${twRecommend(d.recommend)}</section>
    <section><div class="sec-title">外資 / 投信 近期買賣超趨勢 <small>億元</small></div>${twTrend(d.market.trend)}</section>
    <section><div class="sec-title">重點觀察清單 <small>訊號 + 理由</small></div>${twWatch(d)}</section>
    <section><div class="sec-title">個股買賣超金額排行 <small>金額＝股數×收盤(估)，僅普通股</small></div>
@@ -246,6 +249,20 @@ function twTrend(t){
   });
   return `<div class="chartwrap"><div class="legend"><span><i style="background:var(--up)"></i>外資</span><span><i style="background:#5b8def"></i>投信</span></div>
     <div style="overflow-x:auto"><svg width="${W}" height="${H}"><line x1="${pad}" y1="${mid}" x2="${W-8}" y2="${mid}" stroke="var(--line)"/>${bars}</svg></div></div>`;
+}
+function twRecommend(rec){
+  if(!rec) return '';
+  const cards = (rec.picks&&rec.picks.length) ? rec.picks.map(p=>`
+    <div class="wcard bull">
+      <div class="top"><div><span class="nm">${esc(p.name)}</span><span class="cd">${p.code}</span></div>
+        <span class="px ${cls(p.change_pct)}">收 ${p.close}　${pct(p.change_pct)}</span></div>
+      <div style="margin:7px 0">${p.tags.map(t=>`<span class="pill badge bull" style="margin-right:5px">${esc(t)}</span>`).join('')}</div>
+      <div class="metrics"><span>外資 <b class="${cls(p.foreign_val)}">${yi(p.foreign_val)}億</b></span>
+        <span>投信 <b class="${cls(p.trust_val)}">${yi(p.trust_val)}億</b></span>
+        <span>合計 <b class="${cls(p.total_val)}">${yi(p.total_val)}億</b></span></div>
+      <ul class="wreasons">${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>
+    </div>`).join('') : '<div class="card" style="color:var(--muted)">今日無符合條件的偏多個股，建議觀望。</div>';
+  return `<div class="stance">💡 ${esc(rec.stance)}<br><small style="color:var(--muted)">＊以下為符合籌碼條件的觀察名單，非投資建議</small></div><div class="grid wgrid">${cards}</div>`;
 }
 function twWatch(d){
   const items=d.watchlist, cnt={all:items.length,bull:0,bear:0,mixed:0};
@@ -307,6 +324,7 @@ function renderUS(d){
   return `
    <section><div class="sec-title">美股大盤訊號 <small>指數趨勢 + 類股廣度 + VIX</small></div>${lampHTML(d.signal)}</section>
    <section><div class="sec-title">主要指數</div><div class="grid cards">${idx}</div></section>
+   <section><div class="sec-title">推薦關注個股 <small>大型股中站上均線且具動能者</small></div>${usRecommend(d.recommend)}</section>
    <section><div class="sec-title">自訂觀察股 <small>輸入美股代號(如 NVDA)，存在本機瀏覽器</small></div>
      <div class="chartwrap">
        <div class="filterbar"><input id="us-add-input" placeholder="輸入代號後按 Enter，例：NVDA" style="flex:1;min-width:160px">
@@ -322,6 +340,17 @@ function renderUS(d){
        <div class="card"><div class="label" style="color:var(--down);font-weight:700">🔻 資金流出族群(近5日弱)</div>${flow(d.rotation.outflow)}</div>
      </div></section>
    <section><div class="sec-title">11 大類股明細 <small>依近 5 日報酬排序</small></div><div class="tablewrap">${tbl}</div></section>`;
+}
+
+function usRecommend(rec){
+  if(!rec) return '';
+  const cards = (rec.picks&&rec.picks.length) ? rec.picks.map(p=>`
+    <div class="wcard bull">
+      <div class="top"><div><span class="nm">${esc(p.name)}</span><span class="cd">${p.symbol}</span></div>
+        <span class="px ${cls(p.day)}">$${p.price}　${pct(p.day)}</span></div>
+      <ul class="wreasons">${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>
+    </div>`).join('') : '<div class="card" style="color:var(--muted)">目前無站上均線且具動能的標的，建議保守。</div>';
+  return `<div class="stance">💡 ${esc(rec.stance)}<br><small style="color:var(--muted)">＊以下為符合動能條件的觀察名單，非投資建議</small></div><div class="grid wgrid">${cards}</div>`;
 }
 
 /* ---- 美股自訂觀察股(存 localStorage) ---- */

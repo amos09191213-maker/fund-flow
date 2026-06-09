@@ -52,6 +52,21 @@ SECTORS = [
     ("XLU", "公用事業"),
 ]
 
+# 推薦選股的熱門大型股池(跨產業)
+US_UNIVERSE = [
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "AVGO", "TSLA",
+    "AMD", "NFLX", "CRM", "ORCL", "JPM", "V", "MA", "LLY",
+    "UNH", "JNJ", "XOM", "CVX", "HD", "COST", "WMT", "KO",
+]
+US_NAMES = {
+    "AAPL": "蘋果", "MSFT": "微軟", "NVDA": "輝達", "GOOGL": "Alphabet",
+    "AMZN": "亞馬遜", "META": "Meta", "AVGO": "博通", "TSLA": "特斯拉",
+    "AMD": "超微", "NFLX": "Netflix", "CRM": "Salesforce", "ORCL": "甲骨文",
+    "JPM": "摩根大通", "V": "Visa", "MA": "萬事達", "LLY": "禮來",
+    "UNH": "聯合健康", "JNJ": "嬌生", "XOM": "埃克森美孚", "CVX": "雪佛龍",
+    "HD": "家得寶", "COST": "好市多", "WMT": "沃爾瑪", "KO": "可口可樂",
+}
+
 _CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=3mo&interval=1d"
 
 
@@ -153,17 +168,43 @@ def _market_signal(spx: Optional[dict], vix: Optional[dict], sector_rows: List[d
     return {"level": level, "emoji": emoji, "score": round(score, 1), "reasons": reasons}
 
 
+def _build_us_recommend(charts: Dict[str, Optional[dict]], level: str) -> dict:
+    """從大型股池篩選站上 20 日均線且具動能的個股。"""
+    picks = []
+    for sym in US_UNIVERSE:
+        c = charts.get(sym)
+        if not c:
+            continue
+        m = _metrics(US_NAMES.get(sym, sym), sym, c)
+        r5 = m["ret5"] or 0.0
+        r20 = m["ret20"] or 0.0
+        if m["above_ma20"] and r20 > 0:
+            m["score"] = round(r20 * 0.6 + r5 * 0.3 + 3, 2)
+            m["reasons"] = ["站上 20 日均線", f"近 20 日 {r20:+.1f}%", f"近 5 日 {r5:+.1f}%"]
+            picks.append(m)
+    picks.sort(key=lambda x: x["score"], reverse=True)
+    picks = picks[:6]
+
+    if "強力偏多" in level or level == "偏多":
+        stance = "美股偏多，可順勢留意站上均線、相對強勢的權值股，仍需設好停損。"
+    elif level == "中性":
+        stance = "美股中性，挑趨勢向上、動能延續的個股，控管部位。"
+    else:
+        stance = "美股偏空，建議保守；下列為逆勢仍站上均線、相對抗跌的個股，宜謹慎、不追高。"
+    return {"stance": stance, "picks": picks}
+
+
 def build_us_report() -> dict:
     """組出美股報告 dict。"""
-    jobs = [(sym, nm) for sym, nm in INDICES] + [(BENCH, BENCH)] + \
-           [(sym, nm) for sym, nm in SECTORS]
+    index_syms = [s for s, _ in INDICES]
+    sector_syms = [s for s, _ in SECTORS]
+    all_syms = list(dict.fromkeys(index_syms + [BENCH] + sector_syms + US_UNIVERSE))
 
     charts: Dict[str, Optional[dict]] = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = {ex.submit(_fetch_chart, sym): sym for sym, _ in jobs}
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futs = {ex.submit(_fetch_chart, sym): sym for sym in all_syms}
         for fut in futs:
-            sym = futs[fut]
-            charts[sym] = fut.result()
+            charts[futs[fut]] = fut.result()
 
     # 指數
     index_rows = []
@@ -199,6 +240,7 @@ def build_us_report() -> dict:
     outflow = ranked[-3:][::-1]
 
     signal = _market_signal(spx, vix, sector_rows)
+    recommend = _build_us_recommend(charts, signal["level"])
 
     if not index_rows and not sector_rows:
         return {"ok": False, "error": "無法取得美股資料(可能網路問題或 Yahoo 暫時無回應)。"}
@@ -211,6 +253,7 @@ def build_us_report() -> dict:
         "sectors": ranked,
         "rotation": {"inflow": inflow, "outflow": outflow},
         "signal": signal,
+        "recommend": recommend,
         "disclaimer": (
             "美股資料為 Yahoo Finance 延遲報價，類股強弱以 SPDR 類股 ETF 相對 SPY 計算，"
             "訊號為程式自動研判，僅供參考，非投資建議。"

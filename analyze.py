@@ -275,6 +275,9 @@ def build_report(days: int = 6, top_n: int = 15, refresh: bool = False) -> dict:
     # ---- 重點觀察清單(訊號 + 理由) ----
     watchlist = _build_watchlist(rows)
 
+    # ---- 推薦關注(偏多選股 + 操作立場) ----
+    recommend = _build_recommend(rows, signal["level"])
+
     return {
         "ok": True,
         "as_of": twse.fmt_date(anchor),
@@ -284,6 +287,7 @@ def build_report(days: int = 6, top_n: int = 15, refresh: bool = False) -> dict:
         "market_signal": signal,
         "rankings": rankings,
         "watchlist": watchlist,
+        "recommend": recommend,
         "stock_count": len(rows),
         "disclaimer": (
             "本工具僅整理證交所公開的三大法人籌碼資料供研究參考，"
@@ -345,6 +349,54 @@ def _build_watchlist(rows: List[dict]) -> List[dict]:
 
     candidates.sort(key=lambda x: x["strength"], reverse=True)
     return candidates[:18]
+
+
+def _build_recommend(rows: List[dict], market_level: str) -> dict:
+    """依籌碼條件篩選偏多個股，並給隨大盤調整的操作立場。"""
+    picks = []
+    for r in rows:
+        fv, tv, totv = r["foreign_val"], r["trust_val"], r["total_val"]
+        fs, ts = r["foreign_streak"], r["trust_streak"]
+        cp = r["change_pct"]
+        reasons, tags, score = [], [], 0.0
+
+        if fv >= 0.5 and tv >= 0.3:
+            score += fv + tv * 1.5
+            tags.append("雙主力同買")
+            reasons.append(f"外資買超 {fv:.1f} 億、投信買超 {tv:.1f} 億，雙主力同步進場")
+        if ts >= 3:
+            score += ts * 0.8
+            tags.append("投信認養")
+            reasons.append(f"投信連續 {ts} 日買超，中線有認養味道")
+        if fs >= 3:
+            score += fs * 0.5
+            tags.append("外資布局")
+            reasons.append(f"外資連續 {fs} 日買超，持續布局")
+        if totv >= 2 and cp > 0:
+            score += totv * 0.3
+            reasons.append(f"三大法人合計買超 {totv:.1f} 億且股價收紅 {cp:.1f}%")
+
+        # 必須是法人站買方才入選
+        if reasons and (fv > 0 or tv > 0):
+            picks.append({
+                "code": r["code"], "name": r["name"], "close": r["close"],
+                "change_pct": cp, "foreign_val": fv, "trust_val": tv, "total_val": totv,
+                "foreign_streak": fs, "trust_streak": ts,
+                "tags": tags or ["法人買超"], "reasons": reasons,
+                "score": round(score, 2),
+            })
+
+    picks.sort(key=lambda x: x["score"], reverse=True)
+    picks = picks[:6]
+
+    if "強力偏多" in market_level or market_level == "偏多":
+        stance = "大盤資金偏多，可順勢留意下列法人作多、量價配合的個股，仍需設好停損。"
+    elif market_level == "中性":
+        stance = "大盤中性，建議挑法人持續站買方的個股、分批操作並嚴設停損。"
+    else:
+        stance = "大盤偏空，建議降低持股；下列為仍有法人逆勢買超、相對抗跌的標的，宜分批、控管風險，不宜追高。"
+
+    return {"stance": stance, "picks": picks}
 
 
 if __name__ == "__main__":
