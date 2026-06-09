@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1420" />
+<title>資金流向 · 台股 / 美股 / BTC</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171d2b; --panel2:#1d2435; --line:#2a3346;
+    --txt:#e6ebf5; --muted:#8b97ad; --accent:#5b8def;
+    --up:#ff5868; --down:#1ecb8b; --flat:#8b97ad;
+    --bull:#ff5868; --bear:#1ecb8b; --info:#c9a227;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
+    font-size:15px;line-height:1.5}
+  a{color:var(--accent)}
+  .pos{color:var(--up)} .neg{color:var(--down)} .zero{color:var(--flat)}
+
+  header{position:sticky;top:0;z-index:20;background:#0f1420;
+    border-bottom:1px solid var(--line);padding:10px 14px env(safe-area-inset-top)}
+  .brand{font-size:17px;font-weight:800;letter-spacing:.3px;display:flex;
+    align-items:center;gap:8px;justify-content:space-between}
+  .brand small{color:var(--muted);font-size:11px;font-weight:400}
+  .iconbtn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;min-height:36px}
+  .iconbtn:active{background:var(--accent)}
+  .tabs-main{display:flex;gap:6px;margin-top:9px}
+  .tabs-main button{flex:1;background:var(--panel2);color:var(--muted);border:1px solid var(--line);
+    border-radius:10px;padding:10px 4px;font-size:15px;font-weight:700;cursor:pointer;min-height:44px}
+  .tabs-main button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  main{max-width:1180px;margin:0 auto;padding:14px 14px 40px}
+  .view{display:none} .view.active{display:block}
+  section{margin-bottom:22px}
+  .sec-title{font-size:15px;font-weight:700;margin:0 0 10px;display:flex;
+    align-items:baseline;gap:8px;flex-wrap:wrap}
+  .sec-title small{color:var(--muted);font-weight:400;font-size:11px}
+
+  .grid{display:grid;gap:10px}
+  .cards{grid-template-columns:repeat(2,1fr)}
+  @media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px}
+  .card .label{color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:6px}
+  .card .val{font-size:23px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums}
+  .card .sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+
+  /* 訊號燈 */
+  .signal{display:flex;gap:12px;flex-direction:column}
+  @media(min-width:680px){.signal{flex-direction:row;align-items:stretch}}
+  .lamp{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 18px;text-align:center;display:flex;flex-direction:column;justify-content:center;
+    min-width:170px}
+  .lamp .lv{font-size:27px;font-weight:900;margin:4px 0}
+  .lamp .sc{color:var(--muted);font-size:12px}
+  .reasons{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+  .reasons ul{margin:0;padding:0;list-style:none}
+  .reasons li{padding:6px 0;border-bottom:1px dashed var(--line);display:flex;gap:9px;align-items:flex-start;font-size:14px}
+  .reasons li:last-child{border-bottom:0}
+  .rdot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none}
+  .rdot.bull{background:var(--bull)} .rdot.bear{background:var(--bear)} .rdot.info{background:var(--info)}
+
+  /* 趨勢圖 / 圖表 */
+  .chartwrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+
+  /* 條狀(類股輪動) */
+  .bars{display:flex;flex-direction:column;gap:7px}
+  .barrow{display:grid;grid-template-columns:96px 1fr 64px;align-items:center;gap:8px;font-size:13px}
+  .barrow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bartrack{height:16px;background:var(--panel2);border-radius:5px;position:relative;overflow:hidden}
+  .barfill{position:absolute;top:0;bottom:0;border-radius:5px}
+  .barrow .v{text-align:right;font-variant-numeric:tabular-nums}
+
+  /* 觀察清單 */
+  .filterbar,.tabs{display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap}
+  .filterbar button,.tabs button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 11px;font-size:13px;cursor:pointer;min-height:38px}
+  .filterbar button.active,.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .wgrid{grid-template-columns:1fr}
+  @media(min-width:560px){.wgrid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.wgrid{grid-template-columns:repeat(3,1fr)}}
+  .wcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;border-left:4px solid var(--line)}
+  .wcard.bull{border-left-color:var(--bull)} .wcard.bear{border-left-color:var(--bear)} .wcard.mixed{border-left-color:var(--info)}
+  .wcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .wcard .nm{font-weight:800;font-size:16px}
+  .wcard .cd{color:var(--muted);font-size:12px;font-weight:400;margin-left:5px}
+  .wcard .px{font-variant-numeric:tabular-nums;font-size:13px;margin-top:2px}
+  .badge.bull{background:rgba(255,88,104,.16);color:var(--up)}
+  .badge.bear{background:rgba(30,203,139,.16);color:var(--down)}
+  .badge.mixed{background:rgba(201,162,39,.18);color:var(--info)}
+  .badge.info{background:rgba(139,151,173,.18);color:var(--muted)}
+  .metrics{display:flex;gap:10px;margin:9px 0;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .metrics b{font-variant-numeric:tabular-nums}
+  .wreasons{margin:0;padding-left:16px;font-size:13px;color:#cdd5e3}
+  .wreasons li{margin:3px 0}
+
+  /* 表格 */
+  .tablewrap{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:12px;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;background:var(--panel)}
+  th,td{padding:9px 11px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:600;background:var(--panel2);position:sticky;top:0}
+  td.l,th.l{text-align:left}
+  tr:active td{background:rgba(91,141,239,.1)}
+
+  /* BTC hero */
+  .hero{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .hero .price{font-size:38px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+  .hero .row{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:12px}
+  .hero .row b{color:var(--txt);font-variant-numeric:tabular-nums}
+
+  .loading{text-align:center;color:var(--muted);padding:48px 10px}
+  .spinner{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .errbox{background:rgba(255,88,104,.12);border:1px solid var(--up);color:var(--up);padding:15px;border-radius:12px}
+  footer{color:var(--muted);font-size:11px;border-top:1px solid var(--line);padding:16px 14px;
+    max-width:1180px;margin:0 auto;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span>📊 資金流向 Dashboard</span>
+    <button class="iconbtn" id="refresh" title="重新抓取最新資料">⟳ 更新</button>
+  </div>
+  <nav class="tabs-main">
+    <button data-tab="tw" class="active">台股</button>
+    <button data-tab="us">美股</button>
+    <button data-tab="btc">BTC</button>
+  </nav>
+  <div class="brand"><small id="updated"></small></div>
+</header>
+
+<main>
+  <div class="view active" id="view-tw"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+  <div class="view" id="view-us"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+  <div class="view" id="view-btc"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+</main>
+
+<footer id="footer">資料來源：證交所(台股) · Yahoo Finance(美股) · Binance/CoinGecko(BTC)。紅=漲/買超，綠=跌/賣超。⚠️ 所有訊號為程式自動產生，僅供研究參考，非投資建議。</footer>
+
+<script>
+const $ = (s,el=document)=>el.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const cls = v => v>0?'pos':(v<0?'neg':'zero');
+const sgn = (v,d=2)=> (v>0?'+':'') + Number(v).toFixed(d);
+const pct = (v,d=2)=> v==null?'—':(sgn(v,d)+'%');
+const yi  = v => (v>0?'+':'') + Number(v).toFixed(1);
+const usd = (v,d=0)=> '$' + Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+const STATE = {tw:null, us:null, btc:null};
+const LOADED = {tw:false, us:false, btc:false};
+let TAB='tw', DAYS=6, WFILTER='all', RTAB='foreign_buy';
+
+/* ---------- 分頁切換 ---------- */
+function switchTab(name){
+  TAB=name;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $('#view-'+name).classList.add('active');
+  if(!LOADED[name]) loadTab(name,false);
+  else renderTab(name);
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+$('#refresh').onclick=()=>loadTab(TAB,true);
+
+async function loadTab(name, refresh){
+  const view=$('#view-'+name);
+  view.innerHTML='<div class="loading"><div class="spinner"></div>'+(refresh?'重新抓取中…':'載入中…')+'</div>';
+  let url = name==='tw'?`/api/tw?days=${DAYS}&refresh=${refresh?1:0}`
+          : name==='us'?`/api/us?refresh=${refresh?1:0}`
+          : `/api/btc?refresh=${refresh?1:0}`;
+  try{
+    const r=await fetch(url); const d=await r.json();
+    if(!d.ok){ view.innerHTML=`<div class="errbox"><b>載入失敗</b><br>${esc(d.error||'未知錯誤')}</div>`; return; }
+    STATE[name]=d; LOADED[name]=true; renderTab(name);
+  }catch(e){ view.innerHTML=`<div class="errbox"><b>載入失敗</b><br>${esc(String(e))}</div>`; }
+}
+
+function renderTab(name){
+  const d=STATE[name]; if(!d) return;
+  if(name==='tw'){ $('#view-tw').innerHTML=renderTW(d); bindTW(); $('#updated').textContent='台股資料日 '+d.as_of; }
+  if(name==='us'){ $('#view-us').innerHTML=renderUS(d); $('#updated').textContent='美股更新 '+d.as_of; }
+  if(name==='btc'){ $('#view-btc').innerHTML=renderBTC(d); $('#updated').textContent='BTC 更新 '+d.as_of; }
+}
+
+/* ========== 共用：訊號燈 ========== */
+function lampHTML(s){
+  const lv = s.level.includes('多')?'pos':(s.level.includes('空')?'neg':'zero');
+  const reasons=(s.reasons||[]).map(r=>`<li><span class="rdot ${r.kind}"></span><span>${esc(r.text)}</span></li>`).join('');
+  const maxTxt = s.max?` / 滿分 ${s.max}`:'';
+  return `<div class="signal">
+    <div class="lamp"><div style="font-size:12px;color:var(--muted)">綜合研判</div>
+      <div class="lv ${lv}">${s.emoji} ${s.level}</div>
+      <div class="sc">分數 ${s.score>0?'+':''}${s.score}${maxTxt}</div></div>
+    <div class="reasons"><ul>${reasons}</ul></div></div>`;
+}
+
+/* ================= 台股 ================= */
+function renderTW(d){
+  const m=d.market.today, fs=d.market.foreign_streak, ts=d.market.trust_streak;
+  const st=n=>n>0?`連買 ${n} 日`:(n<0?`連賣 ${-n} 日`:'—');
+  const card=(l,v,sub)=>`<div class="card"><div class="label"><span>${l}</span></div>
+     <div class="val ${cls(v)}">${yi(v)}<span style="font-size:13px">&nbsp;億</span></div>
+     <div class="sub">${sub||''}</div></div>`;
+  return `
+   <div class="filterbar"><label style="color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px">觀察天數
+     <select id="days" class="iconbtn">
+       <option value="4">4 日</option><option value="6" selected>6 日</option>
+       <option value="8">8 日</option><option value="10">10 日</option></select></label>
+     <span style="color:var(--muted);font-size:12px;align-self:center">樣本 ${d.trading_days.length} 日 · 個股 ${d.stock_count} 檔</span>
+   </div>
+   <section><div class="sec-title">今日大盤三大法人買賣超 <small>單位：億元</small></div>
+     <div class="grid cards">${card('外資',m.foreign,st(fs))}${card('投信',m.trust,st(ts))}
+       ${card('自營商',m.dealer,'含自行＋避險')}${card('三大法人合計',m.total,'')}</div></section>
+   <section><div class="sec-title">大盤資金流向訊號 <small>依籌碼規則自動研判</small></div>${lampHTML(d.market_signal)}</section>
+   <section><div class="sec-title">外資 / 投信 近期買賣超趨勢 <small>億元</small></div>${twTrend(d.market.trend)}</section>
+   <section><div class="sec-title">重點觀察清單 <small>訊號 + 理由</small></div>${twWatch(d)}</section>
+   <section><div class="sec-title">個股買賣超金額排行 <small>金額＝股數×收盤(估)，僅普通股</small></div>
+     <div class="tabs" id="rtabs">${RANKDEFS.map(([k,t])=>`<button data-rt="${k}" class="${RTAB===k?'active':''}">${t}</button>`).join('')}</div>
+     <div class="tablewrap" id="ranktable">${twRankTable(d)}</div></section>`;
+}
+function twTrend(t){
+  const W=Math.max(520,t.length*84),H=200,pad=24,mid=H/2;
+  let mx=1; t.forEach(x=>{mx=Math.max(mx,Math.abs(x.foreign),Math.abs(x.trust));});
+  const sc=(H/2-pad)/mx, bw=16, gap=5;
+  let bars='';
+  t.forEach((x,i)=>{
+    const cx=pad+34+i*((W-pad-50)/t.length);
+    const dr=(v,off,c)=>{const h=Math.abs(v)*sc,y=v>=0?mid-h:mid;
+      return `<rect x="${cx+off}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${c}"/>`+
+        `<text x="${cx+off+bw/2}" y="${v>=0?y-3:y+h+11}" font-size="9" fill="#9aa6ba" text-anchor="middle">${v>=0?'+':''}${v.toFixed(0)}</text>`;};
+    bars+=dr(x.foreign,0,'var(--up)')+dr(x.trust,bw+gap,'#5b8def');
+    bars+=`<text x="${cx+(bw*2+gap)/2}" y="${H-5}" font-size="10" fill="#9aa6ba" text-anchor="middle">${x.date.slice(5)}</text>`;
+  });
+  return `<div class="chartwrap"><div class="legend"><span><i style="background:var(--up)"></i>外資</span><span><i style="background:#5b8def"></i>投信</span></div>
+    <div style="overflow-x:auto"><svg width="${W}" height="${H}"><line x1="${pad}" y1="${mid}" x2="${W-8}" y2="${mid}" stroke="var(--line)"/>${bars}</svg></div></div>`;
+}
+function twWatch(d){
+  const items=d.watchlist, cnt={all:items.length,bull:0,bear:0,mixed:0};
+  items.forEach(w=>cnt[w.direction]++);
+  const fb=(k,t)=>`<button data-wf="${k}" class="${WFILTER===k?'active':''}">${t} (${cnt[k]||0})</button>`;
+  const list=items.filter(w=>WFILTER==='all'||w.direction===WFILTER);
+  const st=n=>n>0?`連買${n}`:(n<0?`連賣${-n}`:'—');
+  const cards=list.length?list.map(w=>`<div class="wcard ${w.direction}">
+     <div class="top"><div><span class="nm">${esc(w.name)}</span><span class="cd">${w.code}</span></div>
+       <span class="pill badge ${w.direction}">${w.label}</span></div>
+     <div class="px ${cls(w.change_pct)}">收 ${w.close}　${pct(w.change_pct)}</div>
+     <div class="metrics"><span>外資 <b class="${cls(w.foreign_val)}">${yi(w.foreign_val)}億</b>(${st(w.foreign_streak)})</span>
+       <span>投信 <b class="${cls(w.trust_val)}">${yi(w.trust_val)}億</b>(${st(w.trust_streak)})</span>
+       <span>合計 <b class="${cls(w.total_val)}">${yi(w.total_val)}億</b></span></div>
+     <ul class="wreasons">${w.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`).join('')
+     :'<div class="card" style="color:var(--muted)">此分類今日無符合條件的個股。</div>';
+  return `<div class="filterbar" id="wfbar">${fb('all','全部')}${fb('bull','偏多')}${fb('bear','偏空')}${fb('mixed','分歧')}</div><div class="grid wgrid" id="wgrid">${cards}</div>`;
+}
+const RANKDEFS=[['foreign_buy','外資買超'],['foreign_sell','外資賣超'],['trust_buy','投信買超'],
+  ['trust_sell','投信賣超'],['total_buy','合計買超'],['total_sell','合計賣超'],['dual_buy','雙主力同買']];
+function twRankTable(d){
+  const rows=d.rankings[RTAB]||[];
+  if(!rows.length) return '<div class="loading">無資料</div>';
+  const tr=rows.map((r,i)=>`<tr><td>${i+1}</td><td class="l">${esc(r.name)} <span style="color:var(--muted)">${r.code}</span></td>
+     <td>${r.close}</td><td class="${cls(r.change_pct)}">${pct(r.change_pct)}</td>
+     <td class="${cls(r.foreign_val)}">${yi(r.foreign_val)}</td><td class="${cls(r.trust_val)}">${yi(r.trust_val)}</td>
+     <td class="${cls(r.total_val)}">${yi(r.total_val)}</td><td>${r.foreign_streak||'—'}/${r.trust_streak||'—'}</td></tr>`).join('');
+  return `<table><thead><tr><th>#</th><th class="l">個股</th><th>收盤</th><th>漲跌%</th><th>外資億</th><th>投信億</th><th>合計億</th><th>連(外/投)</th></tr></thead><tbody>${tr}</tbody></table>`;
+}
+function bindTW(){
+  $('#days').value=DAYS; $('#days').onchange=e=>{DAYS=+e.target.value; loadTab('tw',false);};
+  document.querySelectorAll('[data-wf]').forEach(b=>b.onclick=()=>{WFILTER=b.dataset.wf;renderTab('tw');});
+  document.querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{RTAB=b.dataset.rt;
+    document.querySelectorAll('[data-rt]').forEach(x=>x.classList.toggle('active',x===b));
+    $('#ranktable').innerHTML=twRankTable(STATE.tw);});
+}
+
+/* ================= 美股 ================= */
+function renderUS(d){
+  const idx=d.indices.map(i=>`<div class="card"><div class="label"><span>${esc(i.name)}</span>
+     <span class="${cls(i.day)}">${pct(i.day)}</span></div>
+     <div class="val">${Number(i.price).toLocaleString('en-US')}</div>
+     <div class="sub">5日 <span class="${cls(i.ret5)}">${pct(i.ret5)}</span> · ${i.above_ma20?'MA20上方':'MA20下方'}</div></div>`).join('');
+  const sectors=d.sectors;
+  let mx=1; sectors.forEach(s=>{if(s.rs5!=null)mx=Math.max(mx,Math.abs(s.rs5));});
+  const bars=sectors.map(s=>{
+    const v=s.rs5==null?0:s.rs5, w=Math.min(100,Math.abs(v)/mx*100);
+    const col=v>=0?'var(--up)':'var(--down)';
+    return `<div class="barrow"><span class="nm">${esc(s.name)} <span style="color:var(--muted)">${s.symbol}</span></span>
+      <span class="bartrack"><span class="barfill" style="left:0;width:${w}%;background:${col}"></span></span>
+      <span class="v ${cls(v)}">${pct(v)}</span></div>`;}).join('');
+  const flow=(arr)=>arr.map(s=>`<div class="metrics" style="justify-content:space-between;margin:6px 0">
+     <span><b>${esc(s.name)}</b> <span style="color:var(--muted)">${s.symbol}</span></span>
+     <span>5日 <b class="${cls(s.ret5)}">${pct(s.ret5)}</b>　相對SPY <b class="${cls(s.rs5)}">${pct(s.rs5)}</b></span></div>`).join('');
+  const tbl=`<table><thead><tr><th class="l">類股</th><th>現價</th><th>日%</th><th>5日%</th><th>20日%</th><th>相對SPY</th></tr></thead><tbody>${
+     sectors.map(s=>`<tr><td class="l">${esc(s.name)} <span style="color:var(--muted)">${s.symbol}</span></td>
+       <td>${s.price}</td><td class="${cls(s.day)}">${pct(s.day)}</td><td class="${cls(s.ret5)}">${pct(s.ret5)}</td>
+       <td class="${cls(s.ret20)}">${pct(s.ret20)}</td><td class="${cls(s.rs5)}">${pct(s.rs5)}</td></tr>`).join('')}</tbody></table>`;
+  return `
+   <section><div class="sec-title">美股大盤訊號 <small>指數趨勢 + 類股廣度 + VIX</small></div>${lampHTML(d.signal)}</section>
+   <section><div class="sec-title">主要指數</div><div class="grid cards">${idx}</div></section>
+   <section><div class="sec-title">類股資金輪動 <small>近 5 日相對 SPY 強弱(%)，紅=資金流入</small></div>
+     <div class="chartwrap"><div class="bars">${bars}</div></div></section>
+   <section><div class="sec-title">資金流向重點</div>
+     <div class="grid" style="grid-template-columns:1fr;gap:12px">
+       <div class="card"><div class="label" style="color:var(--up);font-weight:700">🔺 資金流入族群(近5日強)</div>${flow(d.rotation.inflow)}</div>
+       <div class="card"><div class="label" style="color:var(--down);font-weight:700">🔻 資金流出族群(近5日弱)</div>${flow(d.rotation.outflow)}</div>
+     </div></section>
+   <section><div class="sec-title">11 大類股明細 <small>依近 5 日報酬排序</small></div><div class="tablewrap">${tbl}</div></section>`;
+}
+
+/* ================= BTC ================= */
+function renderBTC(d){
+  const t=d.ticker||{};
+  const mcap=d.market_cap?` · 市值 ${usd(d.market_cap/1e9,0)}B`:'';
+  const tfRows=(d.timeframes||[]).map(x=>{
+    const k=x.kind;
+    return `<tr><td class="l">${esc(x.tf)}</td>
+      <td><span class="pill badge ${k}">${x.trend}</span></td>
+      <td class="${cls(x.dist_ma)}">${pct(x.dist_ma)}</td></tr>`;}).join('');
+  return `
+   <section><div class="hero">
+     <div style="color:var(--muted);font-size:13px">${esc(d.symbol)}</div>
+     <div class="price">${t.price?usd(t.price,0):'—'}</div>
+     <div class="row">
+       <span>24h <b class="${cls(t.chg24)}">${pct(t.chg24)}</b></span>
+       <span>高 <b>${t.high24?usd(t.high24):'—'}</b></span>
+       <span>低 <b>${t.low24?usd(t.low24):'—'}</b></span>
+       <span>24h量 <b>${t.vol24_usdt?usd(t.vol24_usdt/1e9,1)+'B':'—'}</b>${mcap}</span>
+     </div></div></section>
+   <section><div class="sec-title">多週期綜合訊號 <small>快慢均線(7/25)依週期加權</small></div>${lampHTML(d.signal)}</section>
+   <section><div class="sec-title">各週期走勢 <small>距 25 均線%＝動能(正=偏多)</small></div>
+     <div class="tablewrap"><table><thead><tr><th class="l">週期</th><th>趨勢</th><th>距25均線</th></tr></thead><tbody>${tfRows}</tbody></table></div></section>`;
+}
+
+/* 初始載入 */
+loadTab('tw', false);
+</script>
+</body>
+</html>

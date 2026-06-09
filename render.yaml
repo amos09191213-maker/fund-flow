@@ -1,0 +1,20 @@
+# Render 部署藍圖(Blueprint)
+# 到 https://render.com → New + → Blueprint → 選你的 GitHub repo，
+# Render 會自動依此檔建立服務。詳見 DEPLOY.md。
+services:
+  - type: web
+    name: fund-flow-dashboard
+    runtime: python
+    region: singapore          # 新加坡機房：證交所 / Yahoo / Binance 都連得到
+    plan: free                 # 免費方案(閒置會休眠)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /healthz   # 健康檢查不需密碼
+    autoDeploy: true            # 推到 GitHub 後自動重新部署
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.11
+      - key: APP_USER
+        value: admin            # 登入帳號(可自行修改)
+      - key: APP_PASSWORD
+        generateValue: true     # Render 自動產生一組密碼(可在後台檢視/修改)

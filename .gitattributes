@@ -1,0 +1,3 @@
+# 統一以 LF 儲存文字檔(部署目標為 Linux)
+* text=auto eol=lf
+*.bat text eol=crlf
