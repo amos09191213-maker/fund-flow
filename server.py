@@ -114,7 +114,8 @@ class Handler(BaseHTTPRequestHandler):
     def _require_auth(self):
         body = "需要登入".encode("utf-8")
         self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="資金流向 Dashboard"')
+        # 注意：HTTP 標頭只能用 ASCII，realm 不可放中文(否則編碼例外導致 500/502)
+        self.send_header("WWW-Authenticate", 'Basic realm="Fund Flow Dashboard"')
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
