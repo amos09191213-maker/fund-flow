@@ -63,21 +63,27 @@
 直接在網站「美股」分頁的 **自訂觀察股** 輸入代號（如 `NVDA`）按 Enter 即可。
 清單存在你自己的瀏覽器（localStorage），不必重新部署。
 
-### C. Telegram 定時推播
-推播三市場摘要到你的 Telegram，需要設定一次：
+### C. 定時推播（Discord，推薦；或 Telegram）
+推播三市場摘要到你的 Discord 頻道，設定一次即可。**Discord 最簡單，免 token、免 chat id。**
 
-1. **建立 Bot**：在 Telegram 找 **@BotFather** → `/newbot` → 取得 **Bot Token**。
-2. **取得 chat id**：先對你的新 Bot 傳一則訊息，再找 **@userinfobot** 取得你的 **chat id**（一串數字）。
-3. **在 Render 設環境變數**：服務 → **Environment** → 新增
-   - `TELEGRAM_BOT_TOKEN` = 你的 token
-   - `TELEGRAM_CHAT_ID` = 你的 chat id
-   - （`CRON_KEY` 已由 Render 自動產生，點開複製它的值，下一步要用）→ **Save**
-4. **在 GitHub 設 Secret**：repo → **Settings → Secrets and variables → Actions → New repository secret**
-   - Name：`CRON_KEY`，Value：貼上剛剛從 Render 複製的 `CRON_KEY` 值
-5. **完成**。排程 `telegram-push.yml` 會在台北 16:00（台股盤後）與 08:00（美股盤後）自動推播。
-   想立即測試：repo **Actions → telegram-push → Run workflow**。
+**① 取得 Discord Webhook 網址**
+1. 在你的 Discord 伺服器，選一個頻道 → 右鍵 **編輯頻道**（或齒輪）→ **整合 Integrations** → **Webhook**
+2. **新增 Webhook** → 取個名字（如「資金流向」）→ **複製 Webhook 網址**
+   （長得像 `https://discord.com/api/webhooks/123.../abc...`）
 
-> 沒設定 Telegram 變數時，推播端點只會回「未設定」，不會出錯，網站照常運作。
+**② 在 Render 設環境變數**：服務 → **Environment**
+- `DISCORD_WEBHOOK_URL` = 剛剛複製的 Webhook 網址
+- （`CRON_KEY` 已由 Render 自動產生，點開**複製它的值**，下一步要用）→ **Save**
+
+**③ 在 GitHub 設 Secret**：repo → **Settings → Secrets and variables → Actions → New repository secret**
+- Name：`CRON_KEY`，Value：貼上剛剛從 Render 複製的 `CRON_KEY`
+
+**④ 完成**。排程會在台北 **16:00**（台股盤後）與 **08:00**（美股盤後）自動推播。
+立即測試：repo **Actions → push-notify → Run workflow**，Discord 頻道就會收到摘要。
+
+> **改用 Telegram**（替代方案）：改設 `TELEGRAM_BOT_TOKEN`（@BotFather 申請）與 `TELEGRAM_CHAT_ID`
+> （先對 Bot 傳訊息，再用 `https://api.telegram.org/bot<TOKEN>/getUpdates` 看 `chat.id`）。
+> 兩個管道都設就會**同時**推到兩邊。沒設任何管道時推播端點只回「未設定」，不會出錯。
 
 ---
 

@@ -2,12 +2,13 @@
 """
 notify.py — 組三市場摘要並推播到 Telegram
 
-需要環境變數：
-    TELEGRAM_BOT_TOKEN   你的 Telegram Bot Token(向 @BotFather 申請)
+推播管道(擇一或都設，會送到所有已設定的管道)：
+    DISCORD_WEBHOOK_URL  Discord 頻道 Webhook 網址(最簡單，免 token)
+    TELEGRAM_BOT_TOKEN   Telegram Bot Token(向 @BotFather 申請)
     TELEGRAM_CHAT_ID     接收訊息的 chat id(可向 @userinfobot 查)
 
 由 server 的 /api/push 觸發(再由 GitHub Actions 定時呼叫)，
-未設定上述變數時會回傳友善訊息而不會出錯。
+未設定任何管道時會回傳友善訊息而不會出錯。
 """
 
 from __future__ import annotations
@@ -96,11 +97,32 @@ def send_telegram(text: str) -> dict:
         return {"ok": False, "error": str(e)}
 
 
+def send_discord(text: str) -> dict:
+    url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if not url:
+        return {"ok": False, "error": "未設定 DISCORD_WEBHOOK_URL"}
+    try:
+        # Discord content 上限 2000 字；本摘要遠低於此
+        r = requests.post(url, json={"content": text[:1900]}, timeout=20)
+        return {"ok": r.status_code in (200, 204), "status": r.status_code}
+    except requests.RequestException as e:
+        return {"ok": False, "error": str(e)}
+
+
 def push() -> dict:
-    """組摘要並推播；回傳結果(含預覽文字，方便除錯)。"""
+    """組摘要並推播到所有已設定的管道(Discord / Telegram)。"""
     text = build_text_summary()
-    res = send_telegram(text)
-    return {"ok": bool(res.get("ok")), "preview": text, "detail": res}
+    detail = {}
+    if os.environ.get("DISCORD_WEBHOOK_URL", "").strip():
+        detail["discord"] = send_discord(text)
+    if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip() and os.environ.get("TELEGRAM_CHAT_ID", "").strip():
+        detail["telegram"] = send_telegram(text)
+
+    if not detail:
+        return {"ok": False, "preview": text,
+                "detail": "未設定任何推播管道(請設 DISCORD_WEBHOOK_URL 或 TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID)"}
+    sent_any = any(v.get("ok") for v in detail.values())
+    return {"ok": sent_any, "preview": text, "detail": detail}
 
 
 if __name__ == "__main__":

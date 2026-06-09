@@ -20,7 +20,9 @@ services:
         generateValue: true     # Render 自動產生一組密碼(可在後台檢視/修改)
       - key: CRON_KEY
         generateValue: true     # 觸發 /api/push 的密鑰(複製到 GitHub Secret: CRON_KEY)
+      - key: DISCORD_WEBHOOK_URL
+        sync: false             # Discord 頻道 Webhook 網址(推薦，最簡單；不填則停用)
       - key: TELEGRAM_BOT_TOKEN
-        sync: false             # 你的 Telegram Bot Token(在後台自行填入；不填則停用推播)
+        sync: false             # (選用)Telegram Bot Token
       - key: TELEGRAM_CHAT_ID
-        sync: false             # 接收訊息的 chat id(在後台自行填入)
+        sync: false             # (選用)Telegram chat id

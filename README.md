@@ -38,7 +38,7 @@
 
 **進階（部署後可選用，見 [DEPLOY.md](DEPLOY.md)）**
 - **美股自訂個股**：美股分頁可輸入任意代號（如 NVDA），存在瀏覽器、免重部署，附價格與多空訊號。
-- **Telegram 推播**：設定 Bot 後，由 GitHub Actions 在台股/美股盤後定時推送三市場摘要。
+- **Discord / Telegram 推播**：設定 Webhook(或 Bot)後，由 GitHub Actions 在台股/美股盤後定時推送三市場摘要。
 - **保持喚醒**：GitHub Actions 每 10 分鐘 ping `/healthz`，避免 Render 免費方案休眠。
 
 ---
