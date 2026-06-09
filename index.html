@@ -81,6 +81,12 @@
   .filterbar button,.tabs button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
     border-radius:8px;padding:8px 11px;font-size:13px;cursor:pointer;min-height:38px}
   .filterbar button.active,.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  input{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;font-size:14px;min-height:40px}
+  input::placeholder{color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600}
+  .chip b{color:var(--down);cursor:pointer;margin-left:5px;font-size:15px}
   .wgrid{grid-template-columns:1fr}
   @media(min-width:560px){.wgrid{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:900px){.wgrid{grid-template-columns:repeat(3,1fr)}}
@@ -185,7 +191,7 @@ async function loadTab(name, refresh){
 function renderTab(name){
   const d=STATE[name]; if(!d) return;
   if(name==='tw'){ $('#view-tw').innerHTML=renderTW(d); bindTW(); $('#updated').textContent='台股資料日 '+d.as_of; }
-  if(name==='us'){ $('#view-us').innerHTML=renderUS(d); $('#updated').textContent='美股更新 '+d.as_of; }
+  if(name==='us'){ $('#view-us').innerHTML=renderUS(d); bindUS(); $('#updated').textContent='美股更新 '+d.as_of; }
   if(name==='btc'){ $('#view-btc').innerHTML=renderBTC(d); $('#updated').textContent='BTC 更新 '+d.as_of; }
 }
 
@@ -301,6 +307,13 @@ function renderUS(d){
   return `
    <section><div class="sec-title">美股大盤訊號 <small>指數趨勢 + 類股廣度 + VIX</small></div>${lampHTML(d.signal)}</section>
    <section><div class="sec-title">主要指數</div><div class="grid cards">${idx}</div></section>
+   <section><div class="sec-title">自訂觀察股 <small>輸入美股代號(如 NVDA)，存在本機瀏覽器</small></div>
+     <div class="chartwrap">
+       <div class="filterbar"><input id="us-add-input" placeholder="輸入代號後按 Enter，例：NVDA" style="flex:1;min-width:160px">
+         <button id="us-add-btn" class="primary" style="background:var(--accent);border-color:var(--accent);color:#fff">＋ 加入</button></div>
+       <div id="us-chips" class="chips"></div>
+       <div class="tablewrap" id="us-watch-table"><div class="loading">載入中…</div></div>
+     </div></section>
    <section><div class="sec-title">類股資金輪動 <small>近 5 日相對 SPY 強弱(%)，紅=資金流入</small></div>
      <div class="chartwrap"><div class="bars">${bars}</div></div></section>
    <section><div class="sec-title">資金流向重點</div>
@@ -309,6 +322,49 @@ function renderUS(d){
        <div class="card"><div class="label" style="color:var(--down);font-weight:700">🔻 資金流出族群(近5日弱)</div>${flow(d.rotation.outflow)}</div>
      </div></section>
    <section><div class="sec-title">11 大類股明細 <small>依近 5 日報酬排序</small></div><div class="tablewrap">${tbl}</div></section>`;
+}
+
+/* ---- 美股自訂觀察股(存 localStorage) ---- */
+const US_WATCH_KEY='fundflow_us_watch';
+const US_WATCH_DEFAULT=['NVDA','AAPL','MSFT','TSLA','AMZN','GOOGL','META','AMD'];
+function getUsWatch(){ try{ const v=JSON.parse(localStorage.getItem(US_WATCH_KEY)); return Array.isArray(v)?v:US_WATCH_DEFAULT; }catch(e){ return US_WATCH_DEFAULT; } }
+function setUsWatch(a){ try{ localStorage.setItem(US_WATCH_KEY, JSON.stringify(a)); }catch(e){} }
+function renderUsChips(){
+  const syms=getUsWatch();
+  $('#us-chips').innerHTML = syms.length
+    ? syms.map(s=>`<span class="chip">${esc(s)}<b data-del="${esc(s)}">×</b></span>`).join('')
+    : '<span style="color:var(--muted)">尚無代號，請在上方加入</span>';
+  document.querySelectorAll('#us-chips [data-del]').forEach(b=>b.onclick=()=>{
+    setUsWatch(getUsWatch().filter(x=>x!==b.dataset.del)); renderUsChips(); fetchUsQuotes();
+  });
+}
+function usQuoteTable(rows){
+  if(!rows.length) return '<div class="loading">尚無代號</div>';
+  const tr=rows.map(q=> q.ok===false
+    ? `<tr><td class="l">${esc(q.symbol)}</td><td colspan="5" style="color:var(--muted)">查無此代號</td></tr>`
+    : `<tr><td class="l">${esc(q.symbol)}</td><td>${q.price}</td><td class="${cls(q.day)}">${pct(q.day)}</td>
+       <td class="${cls(q.ret5)}">${pct(q.ret5)}</td><td class="${cls(q.ret20)}">${pct(q.ret20)}</td>
+       <td><span class="pill badge ${q.kind}">${q.signal}</span></td></tr>`).join('');
+  return `<table><thead><tr><th class="l">代號</th><th>現價</th><th>日%</th><th>5日%</th><th>20日%</th><th>訊號</th></tr></thead><tbody>${tr}</tbody></table>`;
+}
+async function fetchUsQuotes(){
+  const tbl=$('#us-watch-table'); if(!tbl) return;
+  const syms=getUsWatch();
+  if(!syms.length){ tbl.innerHTML='<div class="loading">尚無代號，請在上方加入</div>'; return; }
+  tbl.innerHTML='<div class="loading"><div class="spinner"></div>抓取報價中…</div>';
+  try{
+    const r=await fetch('/api/quote?symbols='+encodeURIComponent(syms.join(',')));
+    const d=await r.json();
+    tbl.innerHTML=usQuoteTable(d.quotes||[]);
+  }catch(e){ tbl.innerHTML='<div class="errbox">報價載入失敗</div>'; }
+}
+function bindUS(){
+  renderUsChips(); fetchUsQuotes();
+  const inp=$('#us-add-input'), btn=$('#us-add-btn');
+  const add=()=>{ const v=(inp.value||'').trim().toUpperCase();
+    if(v){ const a=getUsWatch(); if(!a.includes(v)){ a.push(v); setUsWatch(a); renderUsChips(); fetchUsQuotes(); } inp.value=''; } };
+  if(btn) btn.onclick=add;
+  if(inp) inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } };
 }
 
 /* ================= BTC ================= */

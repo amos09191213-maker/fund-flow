@@ -13,6 +13,7 @@ usstock.py — 美股大盤與類股資金輪動
 
 from __future__ import annotations
 
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from statistics import mean
@@ -214,6 +215,61 @@ def build_us_report() -> dict:
             "美股資料為 Yahoo Finance 延遲報價，類股強弱以 SPDR 類股 ETF 相對 SPY 計算，"
             "訊號為程式自動研判，僅供參考，非投資建議。"
         ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 自訂觀察股(任意美股代號)
+# ---------------------------------------------------------------------------
+_SYM_RE = re.compile(r"^[A-Z0-9.\-^]{1,12}$")
+
+
+def _stock_signal(m: dict) -> tuple:
+    """以是否站上 20 日均線 + 近 5 日報酬，給單檔簡易訊號。"""
+    r5 = m.get("ret5") or 0.0
+    if m["above_ma20"] and r5 > 0:
+        return "偏多", "bull"
+    if (not m["above_ma20"]) and r5 < 0:
+        return "偏空", "bear"
+    return "中性", "info"
+
+
+def quote_symbols(symbols: List[str]) -> List[dict]:
+    """抓任意美股代號的報價與訊號(最多 25 檔)。"""
+    syms, seen = [], set()
+    for s in symbols:
+        s = (s or "").strip().upper()
+        if s and s not in seen and _SYM_RE.match(s):
+            seen.add(s)
+            syms.append(s)
+    syms = syms[:25]
+    if not syms:
+        return []
+
+    charts: Dict[str, Optional[dict]] = {}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = {ex.submit(_fetch_chart, s): s for s in syms}
+        for fut in futs:
+            charts[futs[fut]] = fut.result()
+
+    out = []
+    for s in syms:
+        c = charts.get(s)
+        if not c:
+            out.append({"symbol": s, "ok": False})
+            continue
+        m = _metrics(s, s, c)
+        label, kind = _stock_signal(m)
+        m.update({"ok": True, "signal": label, "kind": kind})
+        out.append(m)
+    return out
+
+
+def build_quotes_report(symbols: List[str]) -> dict:
+    return {
+        "ok": True,
+        "as_of": time.strftime("%Y-%m-%d %H:%M"),
+        "quotes": quote_symbols(symbols),
     }
 
 

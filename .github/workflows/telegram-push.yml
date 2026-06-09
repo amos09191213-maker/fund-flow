@@ -1,0 +1,20 @@
+name: telegram-push
+# 定時觸發 /api/push，推送三市場摘要到 Telegram。
+# 需要：
+#   1) GitHub repo Secret  CRON_KEY  (= Render 環境變數 CRON_KEY 的值)
+#   2) Render 環境變數      TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+# cron 時間為 UTC；台北 = UTC+8。可自行調整。
+
+on:
+  schedule:
+    - cron: "0 8 * * 1-5"   # 台北 16:00 平日 → 台股盤後摘要
+    - cron: "0 0 * * 2-6"   # 台北 08:00 → 前一日美股收盤後早報
+  workflow_dispatch: {}
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger push
+        run: |
+          curl -fsS -m 90 "https://fund-flow-dashboard.onrender.com/api/push?key=${{ secrets.CRON_KEY }}" || true

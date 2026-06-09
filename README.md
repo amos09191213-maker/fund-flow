@@ -36,6 +36,11 @@
 **手機優先**：三市場以上方分頁切換、各分頁按需載入；版面 RWD（手機 2 欄、桌面 4 欄），
 表格可橫向捲動，觸控目標夠大。手機與電腦同一個網址即可看。
 
+**進階（部署後可選用，見 [DEPLOY.md](DEPLOY.md)）**
+- **美股自訂個股**：美股分頁可輸入任意代號（如 NVDA），存在瀏覽器、免重部署，附價格與多空訊號。
+- **Telegram 推播**：設定 Bot 後，由 GitHub Actions 在台股/美股盤後定時推送三市場摘要。
+- **保持喚醒**：GitHub Actions 每 10 分鐘 ping `/healthz`，避免 Render 免費方案休眠。
+
 ---
 
 ## 安裝與啟動
@@ -78,6 +83,9 @@ ipconfig
 | `GET /api/tw?days=6&refresh=0` | 台股報告（`/api/data` 為相容舊路徑） |
 | `GET /api/us?refresh=0` | 美股報告 |
 | `GET /api/btc?refresh=0` | BTC 報告 |
+| `GET /api/quote?symbols=NVDA,AAPL` | 美股自訂個股報價＋訊號 |
+| `GET /api/push?key=CRON_KEY` | 觸發 Telegram 推播（免密碼、需金鑰，供排程呼叫） |
+| `GET /healthz` | 健康檢查（免密碼，供保持喚醒） |
 
 `refresh=1` 會清快取重新抓取。各市場有記憶體快取：台股 10 分、美股 5 分、BTC 45 秒。
 

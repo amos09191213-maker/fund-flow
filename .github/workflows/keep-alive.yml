@@ -1,0 +1,16 @@
+name: keep-alive
+# 每 10 分鐘 ping 一次 /healthz，避免 Render 免費方案閒置休眠。
+# 若換了網址，改下面的 URL 即可。
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping healthz
+        run: |
+          curl -fsS -m 60 https://fund-flow-dashboard.onrender.com/healthz || true

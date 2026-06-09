@@ -33,6 +33,7 @@ from urllib.parse import urlparse, parse_qs
 import analyze
 import usstock
 import crypto
+import notify
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX_PATH = os.path.join(HERE, "index.html")
@@ -132,6 +133,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, b"ok", "text/plain; charset=utf-8")
             return
 
+        if path == "/api/push":  # Telegram 推播：用 CRON_KEY 觸發(供排程呼叫，不走密碼)
+            cron_key = os.environ.get("CRON_KEY", "")
+            key = parse_qs(parsed.query).get("key", [""])[0]
+            if not cron_key or not hmac.compare_digest(key, cron_key):
+                self._send(403, b"forbidden", "text/plain; charset=utf-8")
+                return
+            try:
+                res = notify.push()
+            except Exception as e:  # noqa: BLE001
+                res = {"ok": False, "error": f"推播發生例外：{e}"}
+            self._send_json(res)
+            return
+
         if not self._authorized():
             self._require_auth()
             return
@@ -174,6 +188,16 @@ class Handler(BaseHTTPRequestHandler):
                 rep = get_simple("btc", crypto.build_btc_report, BTC_TTL, refresh)
             except Exception as e:  # noqa: BLE001
                 rep = {"ok": False, "error": f"BTC 分析發生例外：{e}"}
+            self._send_json(rep)
+            return
+
+        if path == "/api/quote":  # 美股自訂個股報價
+            raw = parse_qs(parsed.query).get("symbols", [""])[0]
+            syms = [x for x in raw.split(",") if x.strip()]
+            try:
+                rep = usstock.build_quotes_report(syms)
+            except Exception as e:  # noqa: BLE001
+                rep = {"ok": False, "error": f"報價發生例外：{e}"}
             self._send_json(rep)
             return
 

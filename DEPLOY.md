@@ -51,6 +51,36 @@
 
 ---
 
+## 進階功能設定
+
+### A. 保持喚醒（避免休眠）— 免額外帳號
+已內建 GitHub Actions 排程 `.github/workflows/keep-alive.yml`，每 10 分鐘自動 ping `/healthz`。
+推上 GitHub 後，到 repo 的 **Actions** 分頁，若提示需啟用就按 **Enable**。之後它會自動跑。
+> 若你的網址不是 `fund-flow-dashboard.onrender.com`，記得改該檔內的網址。
+> （GitHub 排程偶爾會延遲幾分鐘，要更準時可改用 cron-job.org，見下方常見問題。）
+
+### B. 美股自訂個股 — 免設定
+直接在網站「美股」分頁的 **自訂觀察股** 輸入代號（如 `NVDA`）按 Enter 即可。
+清單存在你自己的瀏覽器（localStorage），不必重新部署。
+
+### C. Telegram 定時推播
+推播三市場摘要到你的 Telegram，需要設定一次：
+
+1. **建立 Bot**：在 Telegram 找 **@BotFather** → `/newbot` → 取得 **Bot Token**。
+2. **取得 chat id**：先對你的新 Bot 傳一則訊息，再找 **@userinfobot** 取得你的 **chat id**（一串數字）。
+3. **在 Render 設環境變數**：服務 → **Environment** → 新增
+   - `TELEGRAM_BOT_TOKEN` = 你的 token
+   - `TELEGRAM_CHAT_ID` = 你的 chat id
+   - （`CRON_KEY` 已由 Render 自動產生，點開複製它的值，下一步要用）→ **Save**
+4. **在 GitHub 設 Secret**：repo → **Settings → Secrets and variables → Actions → New repository secret**
+   - Name：`CRON_KEY`，Value：貼上剛剛從 Render 複製的 `CRON_KEY` 值
+5. **完成**。排程 `telegram-push.yml` 會在台北 16:00（台股盤後）與 08:00（美股盤後）自動推播。
+   想立即測試：repo **Actions → telegram-push → Run workflow**。
+
+> 沒設定 Telegram 變數時，推播端點只會回「未設定」，不會出錯，網站照常運作。
+
+---
+
 ## 常見問題
 
 **Q：免費方案會休眠，第一次開很慢？**
