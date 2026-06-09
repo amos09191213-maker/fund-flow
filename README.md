@@ -51,9 +51,11 @@ Windows 可直接雙擊 **`run.bat`**。常用參數：
 
 ```powershell
 python server.py --port 9000     # 換埠號
-python server.py --days 8        # 台股預設觀察 8 個交易日
 python server.py --no-browser    # 不自動開瀏覽器
 ```
+> 台股觀察天數在頁面右上角「觀察天數」即可調整（不需重啟）。
+
+**部署成公開網站**：見 [DEPLOY.md](DEPLOY.md)（Render 免費方案，含密碼保護，已備好設定檔）。
 
 ### 用手機看
 手機與電腦在**同一個 Wi-Fi** 下，用電腦區網 IP 開啟即可：
